@@ -1,0 +1,12 @@
+{
+  "dev1": {
+    "github_personal_access_token": "SuperSecretPersonalAccessToken",
+    "github_organization": "OrganizationName",
+    "exports_bucket": "S3BucketToExportReposTo"
+  },
+  "v1": {
+    "github_personal_access_token": "SuperSecretPersonalAccessToken",
+    "github_organization": "OrganizationName",
+    "exports_bucket": "S3BucketToExportReposTo"
+  }
+}

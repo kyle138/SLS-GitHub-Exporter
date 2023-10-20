@@ -1,0 +1,92 @@
+service: sls-github-exporter
+# app and org for use with dashboard.serverless.com
+#app: your-app-name
+#org: your-org-name
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: "3"
+
+# Packaging information
+package:
+ patterns:
+  - '!README.md'
+  - '!LICENSE'
+  - '!resources/**'
+  - '!package-lock.json'
+  - '!node_modules/**'
+  - '!config/**'
+
+custom:
+  stage: ${opt:stage, "dev1"}
+  config: ${file(./config/config.json):${self:custom.stage}}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  memorySize: 128
+  stage: ${self:custom.stage}
+  region: us-east-1
+  environment:
+    GITHUB_PERSONAL_ACCESS_TOKEN: ${self:custom.config.github_personal_access_token}
+    GITHUB_ORGANIZATION: ${self:custom.config.github_organization}
+    EXPORTS_BUCKET: ${self:custom.config.exports_bucket}
+# IAM Roles
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "s3:ListBucket"
+            - "s3:GetBucketLocation"
+            - "s3:PutObject"
+            - "s3:GetObject"
+            - "s3:DeleteObject"
+          Resource: ${self:custom.config.exports_bucket}
+
+layers:
+  commonModules:
+    path: layers/CommonModules
+    compatibleRuntimes:
+      - nodejs18.x
+    name: ${self:provider.stage}-userLogs-CommonModules
+    description: "@octokit/rest"
+
+# serverless-lift construct to create SQS queue and associated Lambda
+constructs:
+  githubExports:
+    type: queue
+    maxConcurrency: 10 # The maximum number of concurrent function instances that the SQS event source can invoke.
+    worker: 
+      handler: lambdas/processGithub.handler
+      description: "SQS/Lambda to receive repo links from SQS, then downloads archives from GitHub and saves to S3"
+      timeout: 600
+      layers:
+        - {Ref: CommonModulesLambdaLayer}
+
+functions:
+  cronGithub:
+    handler: lambdas/cronGithub.handler
+    description: "Cron/Lambda to retrieve repo archives (zips) from GitHub"
+    timeout: 600
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+    events:
+      - schedule: cron(0 5 * * ? 2100)  # Set year to 2100 for now to block trigger
+
+
+# Plugins
+plugins:
+  - serverless-lift
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"
