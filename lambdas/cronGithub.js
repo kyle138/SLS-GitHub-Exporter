@@ -56,6 +56,36 @@ function listRepos(org) {
   }); // End Promise
 } // end listRepos
 
+// 
+// publishToSqs
+// Publish the record to SQS
+// Parameters:
+// msg - {string} The data publish
+// queue - The SQS queue url to publish to
+function publishToSqs(params) {
+  return new Promise( async (resolve, reject) => {
+    if(!params.msg || !params.queue) {
+      console.log(`publishToSqs: Queue:${params.queue} Msg:${params.msg}`);  // DEBUG:
+      return reject("publishToSqs(): Msg and Queue are required fields.");
+    } else {
+      const command = new SendMessageCommand({
+        QueueUrl: params.queue,
+        MessageBody: JSON.stringify(params.msg)
+      });
+
+      await sqsClient.send(command)
+      .then((resp) => {
+        console.log('sqsClient:resp:: ',resp);  // DEBUG
+        return resolve();
+      })
+      .catch((err) => {
+        console.error('sqsClient:err:: ',err);
+        return reject();
+      }); // End sqsClient
+    } // End if/else
+  }); // End Promise
+} // End publishToSqs
+
 //
 // handleError
 // Writes error message to DDB errorTable for reporting
@@ -125,14 +155,36 @@ export const handler = async (event, context) => {
     return new Error("Missing process.env.EXPORTS_BUCKET.");
   }
 
+  // Check if SQS QUEUE has been set as an environment variable.
+  // Without this we don't know which queue to publish the Repos to.
+  if(!process.env.SQS_QUEUE) {
+    console.error("process.env.SQS_QUEUE missing"); // DEBUG:
+    await handleError("if(process.env.SQS_QUEUE)","Missing SQS_QUEUE",context);
+    return new Error("Missing process.env.SQS_QUEUE.");
+  }
+
   // Now that the validation checks are out of the way...
 
-  let repos = await listRepos(process.env.GITHUB_ORGANIZATION);
+  await listRepos(process.env.GITHUB_ORGANIZATION)
+  .then(async (repos) => {
+    console.log(JSON.stringify(repos,null,2));  // DEBUG
 
-  console.log(JSON.stringify(repos,null,2));  // DEBUG
+    return await Promise.all(
+      repos.map(async (repo) => await publishToSqs({
+        queue: process.env.SQS_QUEUE,
+        msg: repo
+      })) // End map
+    );  // End Promise.all
+  })// End listRepos.then
+  .then(() => {
+    console.log("Qapla'"); // DEBUG:
+    return { message: 'All records submitted to SQS.' };
+  })  // End loadSettings.then.then.then
+  .catch(async (err) => {
+    console.log("Promise.all.catch:",err);  // DEBUG:
+    await handleError("Promise.all.catch", err, context);
+    throw new Error("bortaS bIr jablu'DI' reH QaQqu' nay'");
+  }); // End Promise.all.catch
 
-  // ************************
-  // Publish repos to SQS to trigger process lambda...
+};  // End handler
 
-
-};

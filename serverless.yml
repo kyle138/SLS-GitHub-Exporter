@@ -73,6 +73,8 @@ functions:
       - {Ref: CommonModulesLambdaLayer}
     events:
       - schedule: cron(0 5 * * ? 2100)  # Set year to 2100 for now to block trigger
+    environment:
+      SQS_QUEUE: ${construct:githubExports.queueUrl}
 
 
 # Plugins
