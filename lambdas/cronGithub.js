@@ -32,8 +32,7 @@ function listRepos(org) {
         per_page: 100,
     })
     .then((resp) => {
-      console.log(resp[3]);  // DEBUG
-      console.log(resp.length); // DEBUG
+      console.log(`Number of repos: ${resp.length}`); // DEBUG
 
       results.push(
         resp.map((repo) => {
@@ -147,14 +146,6 @@ export const handler = async (event, context) => {
     return new Error("Missing process.env.GITHUB_ORGANIZATION.");
   }
 
-  // Check if exports_bucket has been set as an environment variable.
-  // Without this we don't know which S3 bucket to save the Repos to.
-  if(!process.env.EXPORTS_BUCKET) {
-    console.error("process.env.EXPORTS_BUCKET missing"); // DEBUG:
-    await handleError("if(process.env.EXPORTS_BUCKET)","Missing EXPORTS_BUCKET",context);
-    return new Error("Missing process.env.EXPORTS_BUCKET.");
-  }
-
   // Check if SQS QUEUE has been set as an environment variable.
   // Without this we don't know which queue to publish the Repos to.
   if(!process.env.SQS_QUEUE) {
@@ -167,7 +158,7 @@ export const handler = async (event, context) => {
 
   await listRepos(process.env.GITHUB_ORGANIZATION)
   .then(async (repos) => {
-    console.log(JSON.stringify(repos,null,2));  // DEBUG
+    // console.log(JSON.stringify(repos,null,2));  // DEBUG
 
     return await Promise.all(
       repos.map(async (repo) => await publishToSqs({
