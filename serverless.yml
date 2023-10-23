@@ -84,8 +84,8 @@ constructs:
       handler: lambdas/processGithub.handler
       description: "SQS/Lambda to receive repo links from SQS, then downloads archives from GitHub and saves to S3"
       timeout: 900
-      memorySize: 1024
-      ephemeralStorageSize: 1024
+      memorySize: 2048
+      ephemeralStorageSize: 2048
       layers:
         - {Ref: CommonModulesLambdaLayer}
         - {Ref: ProcessModulesLambdaLayer}
