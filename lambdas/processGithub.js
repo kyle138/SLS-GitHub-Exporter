@@ -76,11 +76,8 @@ function handleError(method, message, context) {
     // Now everybody gonna know what you did.
     try {
       console.log("DDB params:: ",JSON.stringify(params,null,2)); // DEBUG:
-      // **************************
-      // handleError DISABLED FOR NOW
-      // **************************
-      // const data = await ddbDocClient.send(new PutCommand(params));
-      // console.log("handleError:put data:",JSON.stringify(data,null,2)); // DEBUG:
+      const data = await ddbDocClient.send(new PutCommand(params));
+      console.log("handleError:put data:",JSON.stringify(data,null,2)); // DEBUG:
       return resolve();
 
     } catch (err) {

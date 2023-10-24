@@ -84,8 +84,8 @@ constructs:
       handler: lambdas/processGithub.handler
       description: "SQS/Lambda to receive repo links from SQS, then downloads archives from GitHub and saves to S3"
       timeout: 900
-      memorySize: 2048
-      ephemeralStorageSize: 2048
+      memorySize: 1024
+      ephemeralStorageSize: 1024
       layers:
         - {Ref: CommonModulesLambdaLayer}
         - {Ref: ProcessModulesLambdaLayer}
@@ -101,7 +101,7 @@ functions:
     layers:
       - {Ref: CommonModulesLambdaLayer}
     events:
-      - schedule: cron(45 21 23 * ? *)  # 0500 on the 1st of every month
+      - schedule: cron(01 05 1 * ? *)  # 0501 on the 1st of every month
     environment:
       SQS_QUEUE: ${construct:githubExports.queueUrl}
       GITHUB_ORGANIZATION: ${self:custom.config.github_organization}
