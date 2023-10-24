@@ -1,0 +1,112 @@
+service: sls-github-exporter
+# app and org for use with dashboard.serverless.com
+#app: your-app-name
+#org: your-org-name
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: "3"
+
+# Packaging information
+package:
+ patterns:
+  - '!README.md'
+  - '!LICENSE'
+  - '!resources/**'
+  - '!package-lock.json'
+  - '!node_modules/**'
+  - '!config/**'
+
+custom:
+  stage: ${opt:stage, "dev1"}
+  config: ${file(./config/config.json):${self:custom.stage}}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  memorySize: 128
+  logRetentionInDays: 120
+  stage: ${self:custom.stage}
+  region: us-east-1
+  environment:
+    GITHUB_PERSONAL_ACCESS_TOKEN: ${self:custom.config.github_personal_access_token}
+# IAM Roles
+  iam:
+    role:
+      statements:
+        # Grant write access to S3 bucket
+        - Effect: "Allow"
+          Action:
+            - "s3:ListBucket"
+            - "s3:GetBucketLocation"
+            - "s3:PutObject"
+            - "s3:GetObject"
+            - "s3:DeleteObject"
+          Resource: 
+            - "arn:aws:s3:::${self:custom.config.exports_bucket}"
+            - "arn:aws:s3:::${self:custom.config.exports_bucket}/GitHub/*"
+        # Grant write access to error logs
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:DescribeTable"
+            - "dynamodb:PutItem"
+            - "dynamodb:UpdateItem"
+            - "dynamodb:Query"
+            - "dynamodb:Scan"
+          Resource:
+            - "Fn::Join":
+                - ":"
+                - - "arn:aws:dynamodb"
+                  - Ref: "AWS::Region"
+                  - Ref: "AWS::AccountId"
+                  - "table/errorLogs"
+
+layers:
+  commonModules:
+    path: layers/CommonModules
+    compatibleRuntimes:
+      - nodejs18.x
+    name: ${self:provider.stage}-githubexporter-CommonModules
+    description: "@octokit/rest"
+  processModules:
+    path: layers/ProcessModules
+    compatibleRuntimes:
+      - nodejs18.x
+    name: ${self:provider.stage}-githubexporter-ProcessModules
+    description: "download s3-sync-client"
+
+# serverless-lift construct to create SQS queue and associated Lambda
+constructs:
+  githubExports:
+    type: queue
+    maxConcurrency: 10 # The maximum number of concurrent function instances that the SQS event source can invoke.
+    worker: 
+      handler: lambdas/processGithub.handler
+      description: "SQS/Lambda to receive repo links from SQS, then downloads archives from GitHub and saves to S3"
+      timeout: 900
+      memorySize: 1024
+      ephemeralStorageSize: 1024
+      layers:
+        - {Ref: CommonModulesLambdaLayer}
+        - {Ref: ProcessModulesLambdaLayer}
+      environment:
+        EXPORTS_BUCKET: ${self:custom.config.exports_bucket}
+
+
+functions:
+  cronGithub:
+    handler: lambdas/cronGithub.handler
+    description: "Cron/Lambda to retrieve repo archives (zips) from GitHub"
+    timeout: 600
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+    events:
+      - schedule: cron(01 05 1 * ? *)  # 0501 on the 1st of every month
+    environment:
+      SQS_QUEUE: ${construct:githubExports.queueUrl}
+      GITHUB_ORGANIZATION: ${self:custom.config.github_organization}
+
+
+# Plugins
+plugins:
+  - serverless-lift

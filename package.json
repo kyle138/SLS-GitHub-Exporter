@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "devDependencies": {
+    "serverless-lift": "^1.27.0"
+  }
+}
