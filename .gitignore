@@ -6,4 +6,4 @@ jspm_packages
 .serverless
 
 # Other files
-config/config.json
+#config/config.json
