@@ -1,0 +1,12 @@
+{
+  "dev1": {
+    "github_personal_access_token": "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",
+    "github_organization": "HartEnergy",
+    "exports_bucket": "hedmarchive"
+  },
+  "v1": {
+    "github_personal_access_token": "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",
+    "github_organization": "HartEnergy",
+    "exports_bucket": "hedmarchive"
+  }
+}
